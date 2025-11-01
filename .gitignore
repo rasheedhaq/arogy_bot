@@ -76,6 +76,7 @@ tmp/
 # =====================
 docs/
 test_scripts/
+archive/
 *.md
 !README.md
 rate_limits.json
