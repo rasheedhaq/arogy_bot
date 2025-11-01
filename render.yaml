@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: arogyamitra-bot
+    runtime: python
+    region: singapore
+    plan: free
+    branch: dev
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: DOCTORS_DB_PATH
+        value: data/doctors_enhanced.csv
+      - key: USE_GEMINI
+        value: "false"
+      - key: DEBUG
+        value: "false"
+      - key: ENVIRONMENT
+        value: production

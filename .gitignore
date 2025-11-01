@@ -17,10 +17,10 @@ data/*.csv
 data/*.json
 data/*.xlsx
 !data/doctors_sample.csv
+!data/doctors_enhanced.csv
 
-# Exclude real doctor data
+# Exclude old doctor data
 data/doctors_clean.csv
-data/doctors_enhanced.csv
 data/doctors.csv
 
 # =====================
