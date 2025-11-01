@@ -1,0 +1,78 @@
+# =====================
+# SENSITIVE FILES - NEVER COMMIT
+# =====================
+.env
+!.env.example
+config.local.yml
+
+# API Keys and Secrets
+*_key.txt
+*_token.txt
+secrets/
+
+# =====================
+# DATA FILES - PRIVATE
+# =====================
+data/*.csv
+data/*.json
+data/*.xlsx
+!data/doctors_sample.csv
+
+# Exclude real doctor data
+data/doctors_clean.csv
+data/doctors_enhanced.csv
+data/doctors.csv
+
+# =====================
+# PYTHON
+# =====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+arogyamitra_env/
+
+# =====================
+# IDE
+# =====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# =====================
+# LOGS & TEMP
+# =====================
+*.log
+logs/
+temp/
+tmp/
+
+# =====================
+# OS
+# =====================
+Thumbs.db
+.DS_Store

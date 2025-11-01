@@ -1,0 +1,131 @@
+# =====================
+# Arogyamitra Bot Configuration
+# =====================
+
+# Bot Settings
+bot:
+  name: "Arogyamitra"
+  description: "AI Medical Triage Telegram Bot"
+  
+# Conversation Settings
+conversation:
+  max_clarifying_questions: 0  # Using structured questions instead
+  max_doctor_results: 2
+  enable_auto_response: true
+  use_structured_flow: true  # Follow medical history protocol
+  
+# Emergency Keywords
+emergency:
+  keywords:
+    - "chest pain"
+    - "can't breathe"
+    - "severe bleeding"
+    - "unconscious"
+    - "stroke"
+    - "heart attack"
+    - "difficulty breathing"
+    
+# Bot Messages
+messages:
+  emergency: "⚠️ If this is a medical emergency, please call 108 or go to the nearest hospital immediately."
+  
+  disclaimer: "Disclaimer: This bot is for informational purposes only and does not provide medical advice. Please consult a qualified healthcare professional."
+  
+  welcome: |
+    Welcome to Arogyamitra! 🙏
+    
+    I'll help you find the right doctor by asking a few short questions.
+    
+    What is your main complaint today? (e.g., fever, headache, stomach pain)
+  
+  ask_duration: "How many days have you had this problem?"
+  
+  ask_severity: "On a scale of 1-10, how severe is it? (1 = mild, 10 = very severe)"
+  
+  ask_associated_symptoms: "Do you have any other symptoms? (e.g., nausea, fatigue, pain elsewhere)"
+  
+  ask_age: "What is your age?"
+  
+  ask_location: "Which area in Kerala are you from? (e.g., Perinthalmanna, Malappuram)"
+  
+  emergency_detected: |
+    ⚠️ **EMERGENCY DETECTED** ⚠️
+    
+    Based on your symptoms, please call emergency services immediately!
+    🚨 Call 108 (Ambulance) or visit the nearest emergency room.
+    
+    If this is not an emergency, please type /start to begin again.
+  
+  collecting_info: "Just a couple more details to find the best doctor for you..."
+  
+  ask_chronic_conditions: "Do you have any chronic conditions? (diabetes, blood pressure, etc.) Type 'no' if none."
+  
+  ask_current_medications: "Are you taking any medications currently? Type 'no' if none."
+  
+  analyzing: "Analyzing your information... 🔍"
+  
+  processing_error: |
+    I'm having trouble processing your information.
+    Could you please describe your main symptom again?
+    
+    Type /start to restart.
+  
+  emergency_warning: |
+    ⚠️ Based on your symptoms, this may require immediate attention.
+    Please call 108 or visit the nearest emergency department.
+    
+    I can still show you doctors, but please seek immediate care if symptoms worsen.
+  
+  no_doctors_found: "Based on your symptoms, I recommend consulting a **{specialty}**.\n\nHowever, I couldn't find matching doctors in our current database.\nPlease contact your nearest hospital or clinic."
+  
+  doctors_intro: "Based on your symptoms, I recommend consulting a **{specialty}**.\n\nHere are {count} doctors who can help:\n"
+  
+  cancel: "Search cancelled. Type /start anytime you need help."
+
+# Data Paths
+data:
+  doctors_db: "data/doctors_clean.csv"
+
+# API Settings
+api:
+  groq:
+    temperature: 0.7
+    max_tokens: 1024
+    triage_temperature: 0.3
+    triage_max_tokens: 512
+    
+# Model Prompts
+prompts:
+  triage_system: |
+    You are a medical triage AI following clinical protocols. Analyze the patient information:
+    
+    Chief Complaint: {chief_complaint}
+    Duration: {duration}
+    Severity: {severity}/10
+    Associated Symptoms: {associated_symptoms}
+    Age: {age}
+    Location: {location}
+    Chronic Conditions: {chronic_conditions}
+    Current Medications: {medications}
+    
+    Based on this clinical presentation, determine:
+    1. Most likely medical specialty needed
+    2. Primary symptoms for doctor matching (keywords)
+    3. Urgency level (routine/urgent/emergency)
+    4. Brief clinical reasoning
+    
+    Respond ONLY with valid JSON:
+    {{
+        "specialty": "specialty_name",
+        "symptoms": ["symptom1", "symptom2", "symptom3"],
+        "urgency": "routine|urgent|emergency",
+        "is_emergency": true|false,
+        "reasoning": "brief clinical reasoning",
+        "red_flags": ["any warning signs identified"]
+    }}
+
+  clarifying_question: |
+    You are a medical triage assistant. Based on the conversation, ask ONE brief, relevant clarifying question.
+    This is question {question_count} of {max_questions} maximum.
+    Focus on: duration, severity, related symptoms, age (if not mentioned), location (if not mentioned).
+    Keep it conversational and empathetic. Do not ask for information already provided.
