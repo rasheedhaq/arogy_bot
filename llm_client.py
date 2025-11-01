@@ -117,7 +117,7 @@ class LLMClient:
                 print(f"⚠️ Failed to initialize Gemini: {e}")
         
         # Provider 6: HuggingFace (Free inference API)
-        if HUGGINGFACE_API_KEY:
+        if HUGGINGFACE_API_KEY and not self._is_rate_limited('huggingface'):
             try:
                 from huggingface_hub import InferenceClient as HFInferenceClient
                 global InferenceClient
@@ -126,8 +126,12 @@ class LLMClient:
                 self.hf_model = HUGGINGFACE_MODEL
                 self.providers.append(('huggingface', self._call_huggingface))
                 self.provider_names.append(f"HuggingFace ({HUGGINGFACE_MODEL})")
+            except ImportError as e:
+                print(f"⏭️ Skipping HuggingFace (import error - optional dependency)")
             except Exception as e:
                 print(f"⚠️ Failed to initialize HuggingFace: {e}")
+        elif self._is_rate_limited('huggingface'):
+            print(f"⏭️ Skipping HuggingFace (rate limited until {self.rate_limited_providers.get('huggingface', '')})")
         
         # Provider 7: Anthropic Claude (Fallback)
         if ANTHROPIC_API_KEY:
