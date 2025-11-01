@@ -1,1 +1,0 @@
-This folder contains old scripts and cache files moved from the main workspace for decluttering purposes.
