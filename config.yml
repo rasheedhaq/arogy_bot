@@ -32,17 +32,15 @@ messages:
   disclaimer: "Disclaimer: This bot is for informational purposes only and does not provide medical advice. Please consult a qualified healthcare professional."
   
   welcome: |
-    Welcome to Arogyamitra! 🙏
+    Hello! I'm Dr. Arogyamitra, your AI medical assistant. 👨‍⚕️
     
-    I'll help you find the right doctor by asking a few short questions.
-    
-    What is your main complaint today? (e.g., fever, headache, stomach pain)
+    Tell me - what brings you here today? How can I help you?
   
-  ask_duration: "How many days have you had this problem?"
+  ask_duration: "How long have you had this problem? (Type 'skip' if unsure)"
   
-  ask_severity: "On a scale of 1-10, how severe is it? (1 = mild, 10 = very severe)"
+  ask_severity: "On a scale of 1-10, how severe is it? (1 = mild, 10 = very severe, or type 'skip')"
   
-  ask_associated_symptoms: "Do you have any other symptoms? (e.g., nausea, fatigue, pain elsewhere)"
+  ask_associated_symptoms: "Any other symptoms? (Type 'none' if nothing else)"
   
   ask_age: "What is your age?"
   

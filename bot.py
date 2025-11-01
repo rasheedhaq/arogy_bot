@@ -12,7 +12,8 @@ from telegram.ext import (
 )
 from llm_client import LLMClient
 from doctor_matcher import DoctorMatcher
-from config import CONFIG, EMERGENCY_KEYWORDS
+from config import CONFIG, EMERGENCY_KEYWORDS, DEBUG
+import json
 
 # Conversation states - following medical history flow
 (CHIEF_COMPLAINT, ASK_DURATION, ASK_SEVERITY, ASK_ASSOCIATED_SYMPTOMS,
@@ -23,8 +24,27 @@ llm_client = LLMClient()
 doctor_matcher = DoctorMatcher()
 
 
+def debug_log(label, data):
+    """Print debug information in terminal (only when DEBUG=true)"""
+    if DEBUG:
+        print(f"\n{'='*60}")
+        print(f"🔍 DEBUG: {label}")
+        print(f"{'='*60}")
+        if isinstance(data, dict):
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+        else:
+            print(data)
+        print(f"{'='*60}\n")
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start conversation - collect chief complaint"""
+    debug_log("START Command", {
+        "user_id": update.effective_user.id,
+        "username": update.effective_user.username,
+        "message": update.message.text
+    })
+    
     # Initialize patient data
     context.user_data.clear()
     context.user_data['patient_data'] = {}
@@ -52,14 +72,79 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_chief_complaint(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Collect chief complaint"""
+    """Collect chief complaint - with intelligent parsing"""
     chief_complaint = update.message.text.strip()
+    debug_log("Chief Complaint", {"complaint": chief_complaint})
     
     # Check for emergency
     if any(keyword in chief_complaint.lower() for keyword in EMERGENCY_KEYWORDS):
         await update.message.reply_text(CONFIG["messages"]["emergency_detected"])
         return ConversationHandler.END
     
+    # INTELLIGENT PARSING: Check if message is detailed enough for direct triage
+    message_lower = chief_complaint.lower()
+    word_count = len(chief_complaint.split())
+    
+    # If message is detailed (>10 words) or contains key indicators, try intelligent extraction
+    if word_count >= 10 or any(indicator in message_lower for indicator in 
+        ['having', 'experiencing', 'suffering', 'feeling', 'pain in', 'since', 'for', 'days', 'weeks', 'severe', 'mild']):
+        
+        debug_log("Attempting Intelligent Parse", {"message": chief_complaint})
+        
+        # Try to extract complete info using LLM
+        quick_triage = llm_client.extract_triage_info_structured({
+            'chief_complaint': chief_complaint,
+            'duration': 'not specified',
+            'severity': 'not specified',
+            'associated_symptoms': 'not specified',
+            'age': 'not specified',
+            'location': 'not specified',
+            'chronic_conditions': 'none',
+            'medications': 'none'
+        })
+        
+        if quick_triage and quick_triage.get('specialty'):
+            debug_log("Intelligent Parse SUCCESS - Skipping Questions", quick_triage)
+            
+            # Store the parsed data
+            context.user_data['patient_data']['chief_complaint'] = chief_complaint
+            
+            await update.message.reply_text(
+                f"I understand you're experiencing {chief_complaint}. "
+                f"Let me find the right specialist for you..."
+            )
+            
+            # Find doctors directly
+            symptoms = quick_triage.get('symptoms') or []
+            if isinstance(symptoms, str):
+                symptoms = [symptoms]
+            specialty = quick_triage.get('specialty') or 'General Physician'
+            
+            matches = doctor_matcher.find_doctors(
+                symptoms=symptoms,
+                specialty=specialty,
+                online_only=False,
+                limit=CONFIG["conversation"]["max_doctor_results"]
+            )
+            
+            debug_log("Quick Match Results", {
+                "count": len(matches),
+                "doctors": [m['doctor'].get('full_name', m['doctor'].get('Doctor_Name')) for m in matches]
+            })
+            
+            if matches:
+                response = CONFIG["messages"]["doctors_intro"].format(specialty=specialty, count=len(matches))
+                await update.message.reply_text(response)
+                
+                for match in matches:
+                    card = doctor_matcher.format_doctor_card(match)
+                    await update.message.reply_text(card, parse_mode='Markdown')
+                
+                await update.message.reply_text(CONFIG["messages"]["disclaimer"])
+                return ConversationHandler.END
+    
+    # If not enough detail, continue with standard questions
+    debug_log("Standard Flow - Asking Questions", {"reason": "Insufficient detail or simple complaint"})
     context.user_data['patient_data']['chief_complaint'] = chief_complaint
     await update.message.reply_text(CONFIG["messages"]["ask_duration"])
     return ASK_DURATION
@@ -68,15 +153,26 @@ async def handle_chief_complaint(update: Update, context: ContextTypes.DEFAULT_T
 async def handle_duration(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Collect duration of symptoms"""
     duration = update.message.text.strip()
+    
+    # Handle non-helpful responses
+    if duration.lower() in ['no', 'idk', 'i dont know', 'na', 'n/a', 'skip', 'nothing']:
+        duration = 'not specified'
+    
     context.user_data['patient_data']['duration'] = duration
+    debug_log("Duration", {"duration": duration})
     
     await update.message.reply_text(CONFIG["messages"]["ask_severity"])
     return ASK_SEVERITY
 
 
 async def handle_severity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Collect severity rating"""
+    """Collect severity"""
     severity = update.message.text.strip()
+    
+    # Handle non-helpful responses
+    if severity.lower() in ['no', 'idk', 'i dont know', 'na', 'n/a', 'skip', 'nothing']:
+        severity = 'moderate'  # Default assumption
+    
     context.user_data['patient_data']['severity'] = severity
     
     await update.message.reply_text(CONFIG["messages"]["ask_associated_symptoms"])
@@ -128,7 +224,10 @@ async def handle_medications_and_triage(update: Update, context: ContextTypes.DE
     await update.message.reply_text(CONFIG["messages"]["analyzing"])
     
     patient_data = context.user_data['patient_data']
+    debug_log("Complete Patient Data", patient_data)
+    
     triage_info = llm_client.extract_triage_info_structured(patient_data)
+    debug_log("AI Triage Analysis", triage_info)
     
     if not triage_info:
         await update.message.reply_text(CONFIG["messages"]["processing_error"])
@@ -144,12 +243,22 @@ async def handle_medications_and_triage(update: Update, context: ContextTypes.DE
         symptoms = [symptoms]
     specialty = triage_info.get('specialty') or 'General Physician'
     
+    debug_log("Doctor Search Parameters", {
+        "symptoms": symptoms,
+        "specialty": specialty
+    })
+    
     matches = doctor_matcher.find_doctors(
         symptoms=symptoms,
         specialty=specialty,
         online_only=False,
         limit=CONFIG["conversation"]["max_doctor_results"]
     )
+    
+    debug_log("Doctor Matches Found", {
+        "count": len(matches),
+        "doctors": [m['doctor'].get('full_name', m['doctor'].get('Doctor_Name')) for m in matches]
+    })
     
     if not matches:
         await update.message.reply_text(

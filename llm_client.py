@@ -1,6 +1,7 @@
 """
-LLM Client for interacting with Groq API and Google Gemini
-Implements fallback logic for reliability
+LLM Client with Multi-Provider Fallback Support
+Providers: Groq → Gemini → HuggingFace → Anthropic
+Implements intelligent fallback for rate limits and failures
 """
 from groq import Groq
 from config import (
@@ -15,85 +16,229 @@ from config import (
     MAX_CLARIFYING_QUESTIONS,
     GEMINI_API_KEY,
     USE_GEMINI,
-    GEMINI_MODEL
+    GEMINI_MODEL,
+    HUGGINGFACE_API_KEY,
+    HUGGINGFACE_MODEL,
+    ANTHROPIC_API_KEY,
+    ANTHROPIC_MODEL
 )
 import json
+import time
 
-# Gemini will be imported lazily to avoid dependency issues
+# Lazy imports for optional providers
 genai = None
-GEMINI_AVAILABLE = False
+InferenceClient = None
+Anthropic = None
 
 
 class LLMClient:
     def __init__(self):
-        global genai, GEMINI_AVAILABLE
+        """Initialize all available LLM providers with fallback chain"""
+        self.providers = []
+        self.provider_names = []
         
-        # Initialize Groq (fallback)
-        self.groq_client = Groq(api_key=GROQ_API_KEY)
-        self.groq_model = MODEL_NAME
+        # Provider 1: Groq (Primary - Fast and reliable)
+        if GROQ_API_KEY:
+            try:
+                self.groq_client = Groq(api_key=GROQ_API_KEY)
+                self.groq_model = MODEL_NAME
+                self.providers.append(('groq', self._call_groq))
+                self.provider_names.append(f"Groq ({MODEL_NAME})")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Groq: {e}")
         
-        # Try to import and initialize Gemini if configured
-        self.use_gemini = False
+        # Provider 2: Google Gemini (Generous free tier)
         if USE_GEMINI and GEMINI_API_KEY:
             try:
                 import google.generativeai as genai_module
+                global genai
                 genai = genai_module
-                GEMINI_AVAILABLE = True
-                
                 genai.configure(api_key=GEMINI_API_KEY)
                 self.gemini_model = genai.GenerativeModel(GEMINI_MODEL)
-                self.use_gemini = True
-                print(f"✅ Using Gemini {GEMINI_MODEL} with Groq {MODEL_NAME} fallback")
+                self.providers.append(('gemini', self._call_gemini))
+                self.provider_names.append(f"Gemini ({GEMINI_MODEL})")
             except Exception as e:
                 print(f"⚠️ Failed to initialize Gemini: {e}")
-                print(f"✅ Using Groq {MODEL_NAME} only")
+        
+        # Provider 3: HuggingFace (Free inference API)
+        if HUGGINGFACE_API_KEY:
+            try:
+                from huggingface_hub import InferenceClient as HFInferenceClient
+                global InferenceClient
+                InferenceClient = HFInferenceClient
+                self.hf_client = InferenceClient(token=HUGGINGFACE_API_KEY)
+                self.hf_model = HUGGINGFACE_MODEL
+                self.providers.append(('huggingface', self._call_huggingface))
+                self.provider_names.append(f"HuggingFace ({HUGGINGFACE_MODEL})")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize HuggingFace: {e}")
+        
+        # Provider 4: Anthropic Claude (Fallback)
+        if ANTHROPIC_API_KEY:
+            try:
+                from anthropic import Anthropic as AnthropicClient
+                global Anthropic
+                Anthropic = AnthropicClient
+                self.anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+                self.anthropic_model = ANTHROPIC_MODEL
+                self.providers.append(('anthropic', self._call_anthropic))
+                self.provider_names.append(f"Anthropic ({ANTHROPIC_MODEL})")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Anthropic: {e}")
+        
+        # Print initialized providers
+        if self.providers:
+            print(f"✅ LLM Providers initialized ({len(self.providers)}): {' → '.join(self.provider_names)}")
         else:
-            print(f"✅ Using Groq {MODEL_NAME}")
+            raise RuntimeError("❌ No LLM providers available! Check API keys in .env")
     
     
-    def chat(self, messages, temperature=None, max_tokens=None):
+    def chat(self, messages, temperature=None, max_tokens=None, json_mode=False):
         """
-        Send messages to LLM and get response
-        Uses Gemini first, falls back to Groq
+        Send messages to LLM with automatic fallback
+        Tries each provider in sequence until one succeeds
+        
+        Args:
+            messages: OpenAI-style message list
+            temperature: Sampling temperature
+            max_tokens: Max response tokens
+            json_mode: Request JSON response format
+        
+        Returns:
+            str: LLM response text or None if all providers fail
         """
         temp = temperature or GROQ_TEMPERATURE
         tokens = max_tokens or GROQ_MAX_TOKENS
         
-        # Try Gemini first if enabled
-        if self.use_gemini:
-            try:
-                # Convert messages to Gemini format
-                prompt = self._messages_to_prompt(messages)
-                
-                generation_config = {
-                    "temperature": temp,
-                    "max_output_tokens": tokens,
-                }
-                
-                response = self.gemini_model.generate_content(
-                    prompt,
-                    generation_config=generation_config
-                )
-                return response.text
-            except Exception as e:
-                print(f"⚠️ Gemini failed: {e}, falling back to Groq")
-                # Fall through to Groq
+        last_error = None
         
-        # Use Groq (either as primary or fallback)
-        try:
-            response = self.groq_client.chat.completions.create(
-                model=self.groq_model,
-                messages=messages,
-                temperature=temp,
-                max_tokens=tokens
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            print(f"❌ Groq API error: {e}")
+        # Try each provider in sequence
+        for provider_name, provider_func in self.providers:
+            try:
+                response = provider_func(messages, temp, tokens, json_mode)
+                if response:
+                    return response
+            except Exception as e:
+                error_msg = str(e).lower()
+                
+                # Check if it's a rate limit error
+                if 'rate limit' in error_msg or '429' in error_msg:
+                    print(f"⚠️ {provider_name.title()} rate limit hit, trying next provider...")
+                else:
+                    print(f"⚠️ {provider_name.title()} error: {e}")
+                
+                last_error = e
+                continue
+        
+        # All providers failed
+        print(f"❌ All LLM providers failed. Last error: {last_error}")
+        return None
+    
+    
+    def _call_groq(self, messages, temperature, max_tokens, json_mode):
+        """Call Groq API"""
+        kwargs = {
+            "model": self.groq_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens
+        }
+        
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+        
+        response = self.groq_client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content
+    
+    
+    def _call_gemini(self, messages, temperature, max_tokens, json_mode):
+        """Call Google Gemini API"""
+        from google.generativeai.types import HarmCategory, HarmBlockThreshold
+        
+        # Convert messages to Gemini format
+        prompt = self._messages_to_prompt(messages)
+        
+        generation_config = {
+            "temperature": temperature,
+            "max_output_tokens": max_tokens,
+        }
+        
+        # Note: Gemini JSON mode is different - we'll add instruction in prompt
+        if json_mode:
+            prompt += "\n\nIMPORTANT: Respond with valid JSON format only, no additional text."
+        
+        # Safety settings to allow medical content
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+        
+        response = self.gemini_model.generate_content(
+            prompt, 
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
+        
+        # Check if response was blocked
+        if not response.text:
+            print(f"⚠️ Gemini response empty or blocked. Prompt feedback: {response.prompt_feedback}")
             return None
+            
+        return response.text
+    
+    
+    def _call_huggingface(self, messages, temperature, max_tokens, json_mode):
+        """Call HuggingFace Inference API"""
+        # Convert messages to single prompt
+        prompt = self._messages_to_prompt(messages)
+        
+        if json_mode:
+            prompt += "\n\nIMPORTANT: Respond ONLY with valid JSON, no other text."
+        
+        response = self.hf_client.text_generation(
+            prompt,
+            model=self.hf_model,
+            temperature=temperature,
+            max_new_tokens=max_tokens,
+            return_full_text=False
+        )
+        
+        return response
+    
+    
+    def _call_anthropic(self, messages, temperature, max_tokens, json_mode):
+        """Call Anthropic Claude API"""
+        # Separate system message from conversation
+        system_msg = ""
+        conversation = []
+        
+        for msg in messages:
+            if msg['role'] == 'system':
+                system_msg = msg['content']
+            else:
+                conversation.append({
+                    'role': msg['role'],
+                    'content': msg['content']
+                })
+        
+        kwargs = {
+            "model": self.anthropic_model,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "messages": conversation
+        }
+        
+        if system_msg:
+            kwargs["system"] = system_msg
+        
+        response = self.anthropic_client.messages.create(**kwargs)
+        return response.content[0].text
+    
     
     def _messages_to_prompt(self, messages):
-        """Convert OpenAI-style messages to single prompt for Gemini"""
+        """Convert OpenAI-style messages to single prompt for Gemini/HuggingFace"""
         prompt_parts = []
         for msg in messages:
             role = msg.get("role", "user")
@@ -105,6 +250,7 @@ class LLMClient:
             elif role == "assistant":
                 prompt_parts.append(f"Assistant: {content}")
         return "\n\n".join(prompt_parts)
+    
     
     def extract_triage_info_structured(self, patient_data):
         """
@@ -128,7 +274,7 @@ class LLMClient:
             {"role": "user", "content": formatted_prompt}
         ]
         
-        response = self.chat(messages, temperature=GROQ_TRIAGE_TEMPERATURE, max_tokens=GROQ_TRIAGE_MAX_TOKENS)
+        response = self.chat(messages, temperature=GROQ_TRIAGE_TEMPERATURE, max_tokens=GROQ_TRIAGE_MAX_TOKENS, json_mode=False)
         
         try:
             if response:
@@ -154,6 +300,7 @@ class LLMClient:
         
         return None
     
+    
     def extract_triage_info(self, conversation_history):
         """
         Extract symptoms, severity, and specialty from conversation
@@ -164,7 +311,7 @@ class LLMClient:
             {"role": "user", "content": f"Conversation: {conversation_history}"}
         ]
         
-        response = self.chat(messages, temperature=GROQ_TRIAGE_TEMPERATURE, max_tokens=GROQ_TRIAGE_MAX_TOKENS)
+        response = self.chat(messages, temperature=GROQ_TRIAGE_TEMPERATURE, max_tokens=GROQ_TRIAGE_MAX_TOKENS, json_mode=False)
         
         try:
             # Try to extract JSON from response
@@ -180,6 +327,7 @@ class LLMClient:
         
         return None
     
+    
     def generate_clarifying_question(self, conversation_history, question_count):
         """
         Generate a clarifying question based on conversation
@@ -194,4 +342,4 @@ class LLMClient:
             {"role": "user", "content": f"Conversation so far: {conversation_history}"}
         ]
         
-        return self.chat(messages, temperature=GROQ_TEMPERATURE, max_tokens=150)
+        return self.chat(messages, temperature=GROQ_TEMPERATURE, max_tokens=150, json_mode=False)

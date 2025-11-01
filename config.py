@@ -18,12 +18,20 @@ with open(config_path, 'r', encoding='utf-8') as f:
 # =====================
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.1-405b-reasoning")
+MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 # Gemini Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-USE_GEMINI = os.getenv("USE_GEMINI", "false").lower() == "true"
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+USE_GEMINI = os.getenv("USE_GEMINI", "true").lower() == "true"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+# HuggingFace Configuration
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
+HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
+
+# Anthropic Configuration
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
 
 # =====================
 # Data & Integration

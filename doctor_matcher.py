@@ -55,8 +55,16 @@ class DoctorMatcher:
                     continue  # Skip this doctor entirely
             
             # STEP 2: Check specialty match (PRIMARY MATCH)
-            if specialty and specialty.lower() in str(doctor.get('Specialty', '')).lower():
-                score += 20
+            # Handle both exact and partial matches (e.g., "Dentistry" matches "Dentist")
+            doctor_specialty = str(doctor.get('specialty', doctor.get('Specialty', ''))).lower()
+            if specialty:
+                specialty_lower = specialty.lower()
+                # Check for exact match or partial match
+                if (specialty_lower in doctor_specialty or 
+                    doctor_specialty in specialty_lower or
+                    specialty_lower.replace('ry', '') in doctor_specialty or  # Dentistry → Dentist
+                    specialty_lower.replace('logy', '') in doctor_specialty):  # Cardiology → Cardio
+                    score += 20
             
             # STEP 3: Check primary symptoms (HIGH WEIGHT)
             primary_symptoms = str(doctor.get('primary_symptoms', '')).lower()
