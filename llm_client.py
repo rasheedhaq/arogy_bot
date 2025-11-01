@@ -17,6 +17,12 @@ from config import (
     GEMINI_API_KEY,
     USE_GEMINI,
     GEMINI_MODEL,
+    TOGETHER_API_KEY,
+    TOGETHER_MODEL,
+    DEEPSEEK_API_KEY,
+    DEEPSEEK_MODEL,
+    OPENROUTER_API_KEY,
+    OPENROUTER_MODEL,
     HUGGINGFACE_API_KEY,
     HUGGINGFACE_MODEL,
     ANTHROPIC_API_KEY,
@@ -47,7 +53,46 @@ class LLMClient:
             except Exception as e:
                 print(f"⚠️ Failed to initialize Groq: {e}")
         
-        # Provider 2: Google Gemini (Generous free tier)
+        # Provider 2: Together AI (FREE $25 credit - High quality)
+        if TOGETHER_API_KEY:
+            try:
+                from together import Together
+                self.together_client = Together(api_key=TOGETHER_API_KEY)
+                self.together_model = TOGETHER_MODEL
+                self.providers.append(('together', self._call_together))
+                self.provider_names.append(f"Together ({TOGETHER_MODEL})")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Together AI: {e}")
+        
+        # Provider 3: Deepseek (UNLIMITED FREE)
+        if DEEPSEEK_API_KEY:
+            try:
+                from openai import OpenAI
+                self.deepseek_client = OpenAI(
+                    api_key=DEEPSEEK_API_KEY,
+                    base_url="https://api.deepseek.com"
+                )
+                self.deepseek_model = DEEPSEEK_MODEL
+                self.providers.append(('deepseek', self._call_deepseek))
+                self.provider_names.append(f"Deepseek ({DEEPSEEK_MODEL})")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Deepseek: {e}")
+        
+        # Provider 4: OpenRouter (FREE models available)
+        if OPENROUTER_API_KEY:
+            try:
+                from openai import OpenAI
+                self.openrouter_client = OpenAI(
+                    api_key=OPENROUTER_API_KEY,
+                    base_url="https://openrouter.ai/api/v1"
+                )
+                self.openrouter_model = OPENROUTER_MODEL
+                self.providers.append(('openrouter', self._call_openrouter))
+                self.provider_names.append(f"OpenRouter ({OPENROUTER_MODEL})")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize OpenRouter: {e}")
+        
+        # Provider 5: Google Gemini (Generous free tier)
         if USE_GEMINI and GEMINI_API_KEY:
             try:
                 import google.generativeai as genai_module
@@ -60,7 +105,7 @@ class LLMClient:
             except Exception as e:
                 print(f"⚠️ Failed to initialize Gemini: {e}")
         
-        # Provider 3: HuggingFace (Free inference API)
+        # Provider 6: HuggingFace (Free inference API)
         if HUGGINGFACE_API_KEY:
             try:
                 from huggingface_hub import InferenceClient as HFInferenceClient
@@ -73,7 +118,7 @@ class LLMClient:
             except Exception as e:
                 print(f"⚠️ Failed to initialize HuggingFace: {e}")
         
-        # Provider 4: Anthropic Claude (Fallback)
+        # Provider 7: Anthropic Claude (Fallback)
         if ANTHROPIC_API_KEY:
             try:
                 from anthropic import Anthropic as AnthropicClient
@@ -148,6 +193,39 @@ class LLMClient:
             kwargs["response_format"] = {"type": "json_object"}
         
         response = self.groq_client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content
+    
+    
+    def _call_together(self, messages, temperature, max_tokens, json_mode):
+        """Call Together AI API"""
+        response = self.together_client.chat.completions.create(
+            model=self.together_model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        return response.choices[0].message.content
+    
+    
+    def _call_deepseek(self, messages, temperature, max_tokens, json_mode):
+        """Call Deepseek API (OpenAI-compatible)"""
+        response = self.deepseek_client.chat.completions.create(
+            model=self.deepseek_model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        return response.choices[0].message.content
+    
+    
+    def _call_openrouter(self, messages, temperature, max_tokens, json_mode):
+        """Call OpenRouter API (OpenAI-compatible)"""
+        response = self.openrouter_client.chat.completions.create(
+            model=self.openrouter_model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
         return response.choices[0].message.content
     
     
