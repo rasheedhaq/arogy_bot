@@ -1,7 +1,8 @@
 """
 LLM Client with Multi-Provider Fallback Support
-Providers: Groq → Gemini → HuggingFace → Anthropic
+Providers: Groq → Deepseek → OpenRouter → Gemini → HuggingFace → Anthropic
 Implements intelligent fallback for rate limits and failures
+Persistent rate limit tracking to skip failed providers
 """
 from groq import Groq
 from config import (
@@ -30,11 +31,16 @@ from config import (
 )
 import json
 import time
+import os
+from datetime import datetime, timedelta
 
 # Lazy imports for optional providers
 genai = None
 InferenceClient = None
 Anthropic = None
+
+# Rate limit tracking file
+RATE_LIMIT_FILE = "rate_limits.json"
 
 
 class LLMClient:
@@ -42,9 +48,10 @@ class LLMClient:
         """Initialize all available LLM providers with fallback chain"""
         self.providers = []
         self.provider_names = []
+        self.rate_limited_providers = self._load_rate_limits()
         
         # Provider 1: Groq (Primary - Fast and reliable)
-        if GROQ_API_KEY:
+        if GROQ_API_KEY and not self._is_rate_limited('groq'):
             try:
                 self.groq_client = Groq(api_key=GROQ_API_KEY)
                 self.groq_model = MODEL_NAME
@@ -52,9 +59,11 @@ class LLMClient:
                 self.provider_names.append(f"Groq ({MODEL_NAME})")
             except Exception as e:
                 print(f"⚠️ Failed to initialize Groq: {e}")
+        elif self._is_rate_limited('groq'):
+            print(f"⏭️ Skipping Groq (rate limited until {self.rate_limited_providers.get('groq', '')})")
         
         # Provider 2: Together AI (FREE $25 credit - High quality)
-        if TOGETHER_API_KEY:
+        if TOGETHER_API_KEY and not self._is_rate_limited('together'):
             try:
                 from together import Together
                 self.together_client = Together(api_key=TOGETHER_API_KEY)
@@ -63,9 +72,11 @@ class LLMClient:
                 self.provider_names.append(f"Together ({TOGETHER_MODEL})")
             except Exception as e:
                 print(f"⚠️ Failed to initialize Together AI: {e}")
+        elif self._is_rate_limited('together'):
+            print(f"⏭️ Skipping Together AI (rate limited until {self.rate_limited_providers.get('together', '')})")
         
         # Provider 3: Deepseek (UNLIMITED FREE)
-        if DEEPSEEK_API_KEY:
+        if DEEPSEEK_API_KEY and not self._is_rate_limited('deepseek'):
             try:
                 from openai import OpenAI
                 self.deepseek_client = OpenAI(
@@ -137,6 +148,45 @@ class LLMClient:
         else:
             raise RuntimeError("❌ No LLM providers available! Check API keys in .env")
     
+    def _load_rate_limits(self):
+        """Load rate limit data from file"""
+        if os.path.exists(RATE_LIMIT_FILE):
+            try:
+                with open(RATE_LIMIT_FILE, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+    
+    def _save_rate_limit(self, provider_name, retry_after_minutes=1440):
+        """Save rate limit with expiry time (default 24 hours)"""
+        rate_limits = self._load_rate_limits()
+        expiry_time = (datetime.now() + timedelta(minutes=retry_after_minutes)).isoformat()
+        rate_limits[provider_name] = expiry_time
+        
+        with open(RATE_LIMIT_FILE, 'w') as f:
+            json.dump(rate_limits, f)
+        
+        print(f"📝 Rate limit saved for {provider_name} until {expiry_time}")
+    
+    def _is_rate_limited(self, provider_name):
+        """Check if provider is currently rate limited"""
+        if provider_name in self.rate_limited_providers:
+            expiry_str = self.rate_limited_providers[provider_name]
+            try:
+                expiry_time = datetime.fromisoformat(expiry_str)
+                if datetime.now() < expiry_time:
+                    return True
+                else:
+                    # Rate limit expired, remove it
+                    rate_limits = self._load_rate_limits()
+                    if provider_name in rate_limits:
+                        del rate_limits[provider_name]
+                        with open(RATE_LIMIT_FILE, 'w') as f:
+                            json.dump(rate_limits, f)
+            except:
+                pass
+        return False
     
     def chat(self, messages, temperature=None, max_tokens=None, json_mode=False):
         """
@@ -169,6 +219,8 @@ class LLMClient:
                 # Check if it's a rate limit error
                 if 'rate limit' in error_msg or '429' in error_msg:
                     print(f"⚠️ {provider_name.title()} rate limit hit, trying next provider...")
+                    # Save rate limit for future runs
+                    self._save_rate_limit(provider_name, retry_after_minutes=1440)
                 else:
                     print(f"⚠️ {provider_name.title()} error: {e}")
                 

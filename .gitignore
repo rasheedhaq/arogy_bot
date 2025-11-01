@@ -72,6 +72,15 @@ temp/
 tmp/
 
 # =====================
+# DOCUMENTATION & TESTS (Not for production)
+# =====================
+docs/
+test_scripts/
+*.md
+!README.md
+rate_limits.json
+
+# =====================
 # OS
 # =====================
 Thumbs.db
