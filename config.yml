@@ -27,14 +27,16 @@ emergency:
     
 # Bot Messages
 messages:
-  emergency: "⚠️ If this is a medical emergency, please call 108 or go to the nearest hospital immediately."
+  emergency: "⚠️ If this is a medical emergency, please call 108 or go to the nearest hospital immediately.⚠️"
   
   disclaimer: "Disclaimer: This bot is for informational purposes only and does not provide medical advice. Please consult a qualified healthcare professional."
   
   welcome: |
     Hello! I'm Dr. Arogyamitra, your AI medical assistant. 👨‍⚕️
     
-    Tell me - what brings you here today? How can I help you?
+    Before we begin, I need to collect some basic information to help you better.
+    
+    May I have your name, please?
   
   ask_duration: "How long have you had this problem? (Type 'skip' if unsure)"
   
@@ -69,8 +71,8 @@ messages:
     Type /start to restart.
   
   emergency_warning: |
-    ⚠️ Based on your symptoms, this may require immediate attention.
-    Please call 108 or visit the nearest emergency department.
+    ⚠️ Based on your symptoms, this may require immediate attention.⚠️
+    ⚠️ Please call 108 or visit the nearest emergency department.⚠️
     
     I can still show you doctors, but please seek immediate care if symptoms worsen.
   
