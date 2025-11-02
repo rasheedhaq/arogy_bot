@@ -249,8 +249,7 @@ def setup_handlers(application):
     
     conv_handler = ConversationHandler(
         entry_points=[
-            CommandHandler("start", start),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, start)
+            CommandHandler("start", start)
         ],
         states={
             CONSULTING: [
