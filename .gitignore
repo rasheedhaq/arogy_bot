@@ -23,6 +23,11 @@ data/*.xlsx
 data/doctors_clean.csv
 data/doctors.csv
 
+# Documentation (allow tracking docs in the repo)
+# The top-level rule may have previously excluded docs/ entirely; allow docs/ and all files beneath it.
+!docs/
+!docs/**
+
 # =====================
 # PYTHON
 # =====================
@@ -74,10 +79,11 @@ tmp/
 # =====================
 # DOCUMENTATION & TESTS (Not for production)
 # =====================
-docs/
+# Keep docs/ tracked in repo; ignore test scripts and archive folders
+!docs/
+!docs/**
 test_scripts/
 archive/
-*.md
 !README.md
 rate_limits.json
 
