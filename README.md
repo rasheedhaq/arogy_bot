@@ -93,6 +93,9 @@ User (Telegram) → Bot (8 Questions) → LLM (Groq) → Doctor Matcher → Resu
 - ✅ Sample data provided for testing
 - ✅ `.gitignore` configured properly
 
+### Data disclaimer
+All records in `data/doctors_enhanced.csv` are synthetic or publicly sourced sample data for testing and do not contain real personal patient information.
+
 ### Before Deployment:
 1. Never commit `.env` file
 2. Use environment variables on hosting platform
