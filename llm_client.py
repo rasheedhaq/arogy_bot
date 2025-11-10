@@ -331,15 +331,34 @@ class LLMClient:
         if json_mode:
             prompt += "\n\nIMPORTANT: Respond ONLY with valid JSON, no other text."
         
-        response = self.hf_client.text_generation(
-            prompt,
-            model=self.hf_model,
-            temperature=temperature,
-            max_new_tokens=max_tokens,
-            return_full_text=False
-        )
-        
-        return response
+        try:
+            response = self.hf_client.text_generation(
+                prompt,
+                model=self.hf_model,
+                temperature=temperature,
+                max_new_tokens=max_tokens,
+                return_full_text=False
+            )
+            if response:
+                return response
+        except Exception as e:
+            print(f"⚠️ HuggingFace error: {e}")
+        # Last-resort fallback: try a public, always-free model
+        try:
+            from huggingface_hub import InferenceClient as HFInferenceClient
+            fallback_client = HFInferenceClient()
+            fallback_model = "google/flan-t5-base"
+            fallback_response = fallback_client.text_generation(
+                prompt,
+                model=fallback_model,
+                max_new_tokens=max_tokens,
+                return_full_text=False
+            )
+            print("✅ Used last-resort HuggingFace fallback (google/flan-t5-base)")
+            return fallback_response
+        except Exception as e:
+            print(f"❌ Last-resort HuggingFace fallback failed: {e}")
+            return None
     
     
     def _call_anthropic(self, messages, temperature, max_tokens, json_mode):
