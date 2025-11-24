@@ -12,8 +12,14 @@ from telegram.ext import (
 )
 from llm_client import LLMClient
 from doctor_matcher import DoctorMatcher
+from database import DatabaseManager
 from config import CONFIG, EMERGENCY_KEYWORDS, DEBUG
 import json
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Single conversation state
 CONSULTING = 1
@@ -21,6 +27,7 @@ CONSULTING = 1
 # Initialize clients
 llm_client = LLMClient()
 doctor_matcher = DoctorMatcher()
+db_manager = DatabaseManager()
 
 
 def debug_log(label, data):
@@ -38,9 +45,16 @@ def debug_log(label, data):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start conversation"""
+    user = update.effective_user
     debug_log("START Command", {
-        "user_id": update.effective_user.id,
-        "username": update.effective_user.username
+        "user_id": user.id,
+        "username": user.username
+    })
+    
+    # Save initial user info
+    db_manager.save_user(user.id, {
+        "username": user.username,
+        "name": user.full_name
     })
     
     # Initialize conversation history
@@ -57,6 +71,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle natural conversation - LLM decides next question"""
     user_message = update.message.text.strip()
+    user_id = update.effective_user.id
     
     debug_log(">>> INCOMING MESSAGE", {
         "user": update.effective_user.username,
@@ -92,6 +107,8 @@ async def handle_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Update collected info
     if doctor_response.get('extracted_info'):
         context.user_data['collected_info'].update(doctor_response['extracted_info'])
+        # Update user profile with collected info
+        db_manager.save_user(user_id, context.user_data['collected_info'])
     
     # Check if enough information collected
     if doctor_response.get('ready_for_recommendation'):
@@ -115,6 +132,12 @@ async def handle_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
             "count": len(matches),
             "doctors": [m['doctor'].get('full_name', m['doctor'].get('Doctor_Name')) for m in matches]
         })
+        
+        # Log consultation
+        consultation_data = context.user_data['collected_info']
+        consultation_data['specialty'] = specialty
+        consultation_data['symptoms'] = symptoms
+        db_manager.log_consultation(user_id, consultation_data)
         
         # Send doctor's final message
         await update.message.reply_text(doctor_response['message'])
@@ -244,7 +267,16 @@ What should you (the doctor) say or ask next?"""
             "extracted_info": {}
         }
     
-    result = json.loads(response_text)
+    try:
+        result = json.loads(response_text)
+    except json.JSONDecodeError:
+        # Fallback if JSON parsing fails
+        logger.error(f"Failed to parse LLM response: {response_text}")
+        return {
+            "message": "I didn't quite catch that. Could you please repeat?",
+            "ready_for_recommendation": False,
+            "extracted_info": {}
+        }
     
     # Ensure defaults
     if 'ready_for_recommendation' not in result:
