@@ -7,7 +7,7 @@ import os
 mock_groq_module = MagicMock()
 sys.modules['groq'] = mock_groq_module
 
-from llm_client import LLMClient
+from app.llm_client import LLMClient
 
 class TestLLMClient:
     def test_initialization(self):
@@ -28,7 +28,9 @@ class TestLLMClient:
         mock_groq_instance = mock_groq.return_value
         mock_groq_instance.chat.completions.create.side_effect = Exception("API Error")
         
-        with patch.dict('os.environ', {'GROQ_API_KEY': 'test_key', 'TOGETHER_API_KEY': 'test_key_2'}):
+        with patch.dict('os.environ', {'GROQ_API_KEY': 'test_key', 'TOGETHER_API_KEY': 'test_key_2'}), \
+             patch.object(LLMClient, '_load_rate_limits', return_value={}):
+            
             # Patch Together as well
             with patch('together.Together') as mock_together:
                 mock_together_instance = mock_together.return_value
@@ -46,9 +48,12 @@ class TestLLMClient:
 
     def test_messages_to_prompt(self):
         # We can test this without initializing providers if we mock _init_providers
-        with patch.object(LLMClient, '_init_providers'):
+        # We also need to mock _load_rate_limits to avoid file access
+        # AND we need to ensure __init__ doesn't raise RuntimeError by mocking it or populating providers
+        
+        with patch.object(LLMClient, '__init__', return_value=None) as mock_init:
             client = LLMClient()
-            # Manually set providers to empty to avoid errors if accessed
+            # Manually set providers to empty to avoid errors if accessed (though not used here)
             client.providers = [] 
             
             messages = [

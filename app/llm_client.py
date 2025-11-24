@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any, Tuple, Callable
 import logging
 
-from config import (
+from .config import (
     GROQ_API_KEY, MODEL_NAME, GROQ_TEMPERATURE, GROQ_MAX_TOKENS,
     GROQ_TRIAGE_TEMPERATURE, GROQ_TRIAGE_MAX_TOKENS,
     TRIAGE_SYSTEM_PROMPT, CLARIFYING_QUESTION_PROMPT, MAX_CLARIFYING_QUESTIONS,

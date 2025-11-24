@@ -1,15 +1,3 @@
-"""
-Main entry point for Arogyamitra Telegram Bot
-"""
-from telegram.ext import Application
-from config import TELEGRAM_BOT_TOKEN
-from bot_intelligent import setup_handlers  # Using intelligent conversational bot
-
-def main():
-    """Start the bot"""
-    print("Starting Arogyamitra Bot...")
-    
-    # Create application
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     
     # Setup handlers

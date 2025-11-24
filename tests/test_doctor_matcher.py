@@ -1,5 +1,5 @@
 import pytest
-from doctor_matcher import DoctorMatcher
+from app.doctor_matcher import DoctorMatcher
 import pandas as pd
 import os
 

@@ -3,7 +3,7 @@ Doctor matching logic using CSV database
 """
 import pandas as pd
 from typing import List, Dict, Optional, Any
-from config import DOCTORS_DB_PATH
+from .config import DOCTORS_DB_PATH
 import logging
 
 # Configure logging

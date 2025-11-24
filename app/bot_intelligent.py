@@ -10,10 +10,10 @@ from telegram.ext import (
     filters,
     ConversationHandler
 )
-from llm_client import LLMClient
-from doctor_matcher import DoctorMatcher
-from database import DatabaseManager
-from config import CONFIG, EMERGENCY_KEYWORDS, DEBUG
+from .llm_client import LLMClient
+from .doctor_matcher import DoctorMatcher
+from .database import DatabaseManager
+from .config import CONFIG, EMERGENCY_KEYWORDS, DEBUG
 import json
 import logging
 

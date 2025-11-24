@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Load YAML configuration
-config_path = os.path.join(os.path.dirname(__file__), 'config.yml')
+# Go up one level from 'app' to root, then into 'config'
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yml')
 with open(config_path, 'r', encoding='utf-8') as f:
     CONFIG = yaml.safe_load(f)
 
