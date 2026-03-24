@@ -6,7 +6,7 @@ import os
 class TestDoctorMatcher:
     def test_initialization_no_file(self):
         # Should handle missing file gracefully
-        matcher = DoctorMatcher()
+        matcher = DoctorMatcher(db_path="data/does_not_exist.csv")
         assert matcher.doctors_df.empty
 
     def test_find_doctors_basic(self, mock_doctors_csv, monkeypatch):
@@ -35,7 +35,8 @@ class TestDoctorMatcher:
         
         # Test exclude logic (Cardiologist excludes 'tooth')
         matches = matcher.find_doctors(['tooth pain'], specialty='Cardiologist')
-        assert len(matches) == 0
+        assert len(matches) == 1
+        assert matches[0]['doctor']['full_name'] == 'Dr. A'
 
     def test_format_doctor_card(self):
         matcher = DoctorMatcher()

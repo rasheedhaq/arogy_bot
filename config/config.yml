@@ -84,7 +84,7 @@ messages:
 
 # Data Paths
 data:
-  doctors_db: "data/doctors_clean.csv"
+  doctors_db: "data/doctors_enhanced.csv"
 
 # API Settings
 api:

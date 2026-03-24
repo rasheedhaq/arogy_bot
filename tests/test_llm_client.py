@@ -6,13 +6,16 @@ import os
 # Mock groq module
 mock_groq_module = MagicMock()
 sys.modules['groq'] = mock_groq_module
+sys.modules['together'] = MagicMock()
 
+import app.llm_client as llm_module
 from app.llm_client import LLMClient
 
 class TestLLMClient:
     def test_initialization(self):
         # Mock env vars and rate limits
-        with patch.dict('os.environ', {'GROQ_API_KEY': 'test_key'}), \
+        with patch.object(llm_module, 'GROQ_API_KEY', 'test_key'), \
+             patch.object(llm_module, 'TOGETHER_API_KEY', ''), \
              patch.object(LLMClient, '_load_rate_limits', return_value={}):
             
             # We need to ensure the mock module has the Groq class
@@ -28,7 +31,8 @@ class TestLLMClient:
         mock_groq_instance = mock_groq.return_value
         mock_groq_instance.chat.completions.create.side_effect = Exception("API Error")
         
-        with patch.dict('os.environ', {'GROQ_API_KEY': 'test_key', 'TOGETHER_API_KEY': 'test_key_2'}), \
+        with patch.object(llm_module, 'GROQ_API_KEY', 'test_key'), \
+             patch.object(llm_module, 'TOGETHER_API_KEY', 'test_key_2'), \
              patch.object(LLMClient, '_load_rate_limits', return_value={}):
             
             # Patch Together as well

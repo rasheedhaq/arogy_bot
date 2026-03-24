@@ -79,15 +79,12 @@ tmp/
 # =====================
 # DOCUMENTATION & TESTS (Not for production)
 # =====================
-# Keep only the required setup doc public; ignore other docs and test/archives
-docs/
-# Unignore the folder that contains the public setup doc and the doc itself
-!docs/01_setup/
-!docs/01_setup/CLONING_AND_SETUP.md
 test_scripts/
 archive/
 !README.md
 rate_limits.json
+data/arogy.db
+data/pipeline_report.json
 
 # =====================
 # OS

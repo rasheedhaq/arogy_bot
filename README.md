@@ -57,9 +57,9 @@ cp .env.example .env
 
 5. **Prepare doctor database**
 ```bash
-# Copy sample data or add your own doctors
-cp data/doctors_sample.csv data/doctors_enhanced.csv
-# Edit doctors_enhanced.csv with real doctor data
+# Edit data/doctors_enhanced.csv with your real doctor data
+# Then normalize and sync all derived assets
+python scripts/update_doctors_db.py
 ```
 
 6. **Run the bot**
@@ -77,11 +77,11 @@ User (Telegram) → Bot (8 Questions) → LLM (Groq) → Doctor Matcher → Resu
 
 ### Key Components:
 - **`main.py`**: Entry point, starts the bot
-- **`bot.py`**: Telegram conversation handler (8-question flow)
-- **`llm_client.py`**: Groq API integration for symptom analysis
-- **`doctor_matcher.py`**: 5-step matching algorithm with exclude_keywords
-- **`config.yml`**: All messages and prompts
-- **`config.py`**: Settings loader
+- **`app/bot_intelligent.py`**: Telegram consultation handler
+- **`app/llm_client.py`**: Free-tier LLM integration with fallback support
+- **`app/doctor_matcher.py`**: Matching algorithm with exclude keywords
+- **`config/config.yml`**: Messages and prompts
+- **`app/config.py`**: Settings loader
 
 ---
 
@@ -159,6 +159,19 @@ arogy_bot/
 ```
 
 ---
+
+## Current Working Layout
+
+The block above reflects the original repo plan. The active MVP now runs from these supported areas:
+
+- `app/` for bot logic, matcher, config loader, and SQLite access
+- `config/` for YAML prompts and message settings
+- `data/` for doctor CSV files and local SQLite snapshots
+- `scripts/` for repeatable maintenance tasks like `update_doctors_db.py`
+- `tests/` for the supported automated test suite
+- `docs/` for launch, planning, and setup documentation
+
+`test_scripts/` is kept only as legacy exploratory work and is excluded from the supported `pytest` run.
 
 ## 🌐 Free Hosting Options
 
