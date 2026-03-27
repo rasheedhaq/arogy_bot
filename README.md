@@ -1,301 +1,273 @@
-# 🏥 Arogyamitra Medical Bot - ARM_MVP0
+# Arogyamitra Medical Bot
 
-**Zero-cost AI-powered medical triage chatbot for Telegram**
+Zero-cost AI-powered medical triage chatbot MVP for Telegram.
 
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Groq](https://img.shields.io/badge/AI-Groq%20LLama%203.3-green.svg)](https://groq.com/)
 
-## 🎯 What is ARM_MVP0?
+## What This Project Is
 
-Arogyamitra (आरोग्यमित्र - "Health Friend" in Sanskrit) is an intelligent medical assistant bot that:
-- ✅ Asks structured 8-question medical history (SOAP protocol)
-- ✅ Uses AI (Groq LLama 3.3) to analyze symptoms
-- ✅ Matches patients to appropriate doctors based on specialty
-- ✅ 100% FREE to run (using free-tier APIs)
-- ✅ Prevents mismatches with smart exclude_keywords algorithm
+Arogyamitra is a Telegram-based medical triage assistant designed to stay as close to free as possible for MVP use.
 
-**MVP0 = Zero Cost:** Designed to run entirely on free services!
+The current MVP:
 
----
+- collects user demographics and symptom details through chat
+- uses an LLM to decide the next question or final specialty recommendation
+- matches users to doctors from a local doctor dataset
+- stores users and consultation logs in SQLite
+- runs with CSV + SQLite + free-tier LLM providers
 
-## 🚀 Quick Start
+The goal is not to provide diagnosis or treatment. The goal is to guide a user toward the most relevant doctor or specialty safely and quickly.
 
-### Prerequisites
-- Python 3.13+
-- Telegram account
-- Groq API key (free)
+## MVP Scope
 
-### Installation
+The active MVP is intentionally narrow:
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/yourusername/arogy_bot.git
-cd arogy_bot
+- Channel: Telegram
+- Runtime: local machine or free-tier hosting
+- Data store: CSV + SQLite
+- AI providers: free-tier-first fallback chain
+- Output: doctor/specialty recommendation with disclaimer
+
+Out of scope for the current MVP:
+
+- booking and payments
+- Google Maps integration
+- WhatsApp launch path
+- managed cloud database
+
+## System Overview
+
+At runtime, the system works like this:
+
+1. A Telegram user starts a consultation.
+2. The bot collects information through a guided conversation.
+3. The LLM decides what to ask next and extracts structured details.
+4. Once enough data is collected, the app determines the likely specialty.
+5. The doctor matcher ranks doctors from the local dataset.
+6. The bot sends doctor cards and a disclaimer.
+7. User and consultation data are stored in SQLite.
+
+## Block Diagram
+
+```mermaid
+flowchart TD
+    A["Telegram User"] --> B["Telegram Bot App<br/>main.py + app/bot_intelligent.py"]
+    B --> C["Conversation State<br/>context.user_data"]
+    B --> D["LLM Decision Layer<br/>app/llm_client.py"]
+    D --> E["Free/Low-cost Providers<br/>Groq, Together, Gemini, OpenRouter, others"]
+    D --> B
+    B --> F["Doctor Matcher<br/>app/doctor_matcher.py"]
+    F --> G["Doctor Dataset<br/>data/doctors_enhanced.csv"]
+    B --> H["SQLite Storage<br/>app/database.py -> data/arogy.db"]
+    I["Config + Environment<br/>config/config.yml + .env"] --> B
+    J["Data Pipeline<br/>scripts/update_doctors_db.py"] --> G
+    J --> H
+    K["Automated Tests<br/>tests/"] --> B
+    K --> D
+    K --> F
 ```
 
-2. **Create virtual environment**
-```bash
-conda create -n arogyamitra_env python=3.13
-conda activate arogyamitra_env
+## Active Repository Structure
+
+This repository was cleaned up so there is one active build and a clearer repo contract.
+
+```text
+arogy_bot/
+|-- app/
+|   |-- bot_intelligent.py
+|   |-- config.py
+|   |-- database.py
+|   |-- doctor_matcher.py
+|   `-- llm_client.py
+|-- config/
+|   `-- config.yml
+|-- data/
+|   |-- arogy.db
+|   |-- doctors_clean.csv
+|   |-- doctors_enhanced.csv
+|   `-- doctors_sample.csv
+|-- docs/
+|   |-- 01_setup/
+|   |-- 02_architecture/
+|   |-- 03_planning/
+|   |-- 04_llm_research/
+|   |-- 05_testing/
+|   `-- README.md
+|-- scripts/
+|   `-- update_doctors_db.py
+|-- tests/
+|   |-- test_doctor_matcher.py
+|   |-- test_llm_client.py
+|   `-- test_update_doctors_db.py
+|-- main.py
+|-- pytest.ini
+|-- requirements.txt
+`-- README.md
 ```
 
-3. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
+Supported working areas:
 
-4. **Set up environment variables**
-```bash
-# Copy the example file
-cp .env.example .env
+- `app/` contains the actual application logic
+- `config/` contains YAML prompts and bot settings
+- `data/` contains the active doctor data and local SQLite snapshot
+- `scripts/` contains maintenance utilities
+- `tests/` contains the supported automated test suite
+- `docs/` contains setup, architecture, planning, and testing docs
 
-# Edit .env and add your keys:
-# - TELEGRAM_BOT_TOKEN (from @BotFather)
-# - GROQ_API_KEY (from https://console.groq.com)
-```
+Legacy `test_scripts/` is intentionally excluded from the supported `pytest` run.
 
-5. **Prepare doctor database**
-```bash
-# Edit data/doctors_enhanced.csv with your real doctor data
-# Then normalize and sync all derived assets
+## Core Files
+
+- `main.py`
+  Telegram bot entrypoint.
+- `app/bot_intelligent.py`
+  Main consultation flow and Telegram handlers.
+- `app/llm_client.py`
+  Provider initialization, fallback order, JSON-mode requests, and rate-limit handling.
+- `app/doctor_matcher.py`
+  Specialty and symptom-based doctor scoring with `exclude_keywords` protection.
+- `app/database.py`
+  SQLite storage for users and consultation logs.
+- `config/config.yml`
+  Messages, prompts, emergency keywords, and app defaults.
+- `data/doctors_enhanced.csv`
+  Canonical doctor dataset used by the active app.
+- `scripts/update_doctors_db.py`
+  Normalizes doctor data, regenerates derived files, and syncs SQLite.
+
+## Doctor Data Pipeline
+
+The doctor database update flow is local and repeatable.
+
+Source of truth:
+
+- `data/doctors_enhanced.csv`
+
+Run the refresh pipeline:
+
+```powershell
 python scripts/update_doctors_db.py
 ```
 
-6. **Run the bot**
-```bash
-python main.py
+This refreshes:
+
+- `data/doctors_enhanced.csv`
+- `data/doctors_clean.csv`
+- `data/doctors_sample.csv`
+- `data/arogy.db`
+- `data/pipeline_report.json`
+
+This keeps the MVP simple and free while still giving you a usable update pipeline for doctor data.
+
+## How Doctor Matching Works
+
+The doctor matcher uses a weighted search process:
+
+1. Exclude doctors whose `exclude_keywords` conflict with the user symptom.
+2. Boost exact or near-exact specialty matches.
+3. Score `primary_symptoms`.
+4. Score `secondary_symptoms`.
+5. Fall back to legacy `Keywords` matching when needed.
+
+This helps avoid obvious bad matches like a tooth pain case being routed to oncology.
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.10+
+- Telegram bot token
+- At least one working LLM API key
+
+### Setup
+
+```powershell
+git clone https://github.com/rasheedhaq/arogy_bot.git
+cd arogy_bot
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
----
+Then:
 
-## 📊 Architecture
+1. Fill in `.env`
+2. Update `data/doctors_enhanced.csv` if needed
+3. Run `python scripts/update_doctors_db.py`
+4. Run `pytest`
+5. Run `python main.py`
 
-```
-User (Telegram) → Bot (8 Questions) → LLM (Groq) → Doctor Matcher → Results
-```
+## Testing
 
-### Key Components:
-- **`main.py`**: Entry point, starts the bot
-- **`app/bot_intelligent.py`**: Telegram consultation handler
-- **`app/llm_client.py`**: Free-tier LLM integration with fallback support
-- **`app/doctor_matcher.py`**: Matching algorithm with exclude keywords
-- **`config/config.yml`**: Messages and prompts
-- **`app/config.py`**: Settings loader
+The supported automated suite runs from `pytest.ini`.
 
----
+Run:
 
-## 🔒 Security Features
-
-### What's Protected:
-- ✅ API keys in `.env` (never committed)
-- ✅ Real doctor data excluded from git
-- ✅ Sample data provided for testing
-- ✅ `.gitignore` configured properly
-
-### Data disclaimer
-All records in `data/doctors_enhanced.csv` are synthetic or publicly sourced sample data for testing and do not contain real personal patient information.
-
-### Before Deployment:
-1. Never commit `.env` file
-2. Use environment variables on hosting platform
-3. Keep doctor data private (GDPR compliance)
-
----
-
-## 💡 How It Works
-
-### 8-Question Medical Protocol
-1. **Chief Complaint**: Main problem (e.g., "tooth pain")
-2. **Duration**: How long (e.g., "2 days")
-3. **Severity**: Mild/Moderate/Severe
-4. **Associated Symptoms**: Other symptoms
-5. **Age**: Patient age
-6. **Location**: Where is the pain/issue
-7. **Chronic Conditions**: Existing conditions
-8. **Medications**: Current medications
-
-### Doctor Matching Algorithm (5 Steps)
-```python
-Step 1: EXCLUDE - Check exclude_keywords (prevents tooth→oncologist)
-Step 2: SPECIALTY - Match specialty (weight: 20)
-Step 3: PRIMARY - Match primary_symptoms (weight: 10)
-Step 4: SECONDARY - Match secondary_symptoms (weight: 5)
-Step 5: KEYWORDS - Fallback keyword match (weight: 3)
+```powershell
+pytest -q
 ```
 
-**Example:**
-- Input: "tooth pain"
-- Excluded: Medical Oncologist (exclude_keywords: "tooth,dental")
-- Matched: Dentist (primary_symptoms: "tooth_pain,cavity")
-- Result: ✅ Dentist recommended (NOT Oncologist)
+Current supported tests cover:
 
----
+- doctor matcher behavior
+- LLM fallback behavior
+- doctor data pipeline behavior
 
-## 📁 Project Structure
+## Free MVP Launch Path
 
-```
-arogy_bot/
-├── main.py                 # Bot entry point
-├── bot.py                  # Telegram handlers
-├── llm_client.py           # Groq AI integration
-├── doctor_matcher.py       # Matching algorithm
-├── config.py               # Configuration loader
-├── config.yml              # Messages & prompts
-├── requirements.txt        # Python dependencies
-├── .env.example            # Environment template
-├── .gitignore              # Git exclusions
-├── README.md               # This file
-├── data/
-│   ├── doctors_sample.csv  # Sample data (committed)
-│   └── doctors_enhanced.csv # Real data (excluded)
-└── docs/                   # Documentation
-    ├── DATA_SCHEMA.md
-    ├── DATA_COLLECTION_TEMPLATE.md
-    ├── FULL_PLATFORM_ROADMAP.md
-    ├── IMPLEMENTATION_SUMMARY.md
-    ├── ISSUE_ANALYSIS.md
-    └── VISUAL_ARCHITECTURE.md
-```
+Recommended launch path:
 
----
+1. Keep the product Telegram-only.
+2. Use the local CSV + SQLite setup.
+3. Enable only free-tier LLM providers in `.env`.
+4. Validate with `pytest`.
+5. Run one real Telegram end-to-end conversation test.
+6. Deploy only after local and real-chat validation pass.
 
-## Current Working Layout
+Recommended free/low-cost hosting options:
 
-The block above reflects the original repo plan. The active MVP now runs from these supported areas:
+- Railway
+- Render
+- Fly.io
 
-- `app/` for bot logic, matcher, config loader, and SQLite access
-- `config/` for YAML prompts and message settings
-- `data/` for doctor CSV files and local SQLite snapshots
-- `scripts/` for repeatable maintenance tasks like `update_doctors_db.py`
-- `tests/` for the supported automated test suite
-- `docs/` for launch, planning, and setup documentation
+## Documentation Map
 
-`test_scripts/` is kept only as legacy exploratory work and is excluded from the supported `pytest` run.
+- `docs/README.md`
+  Documentation index
+- `docs/01_setup/`
+  Setup and deployment
+- `docs/02_architecture/`
+  Architecture and protocol notes
+- `docs/03_planning/`
+  MVP readiness, database pipeline, roadmaps
+- `docs/04_llm_research/`
+  Provider research and rate-limit notes
+- `docs/05_testing/`
+  Test reports and testing guidance
 
-## 🌐 Free Hosting Options
+Useful planning docs:
 
-### Option 1: Railway.app (Recommended)
-- ✅ 500 hours/month free
-- ✅ Auto-deploy from GitHub
-- ✅ Environment variables support
+- `docs/03_planning/MVP_READINESS.md`
+- `docs/03_planning/DATABASE_PIPELINE.md`
 
-### Option 2: Render.com
-- ✅ Free tier available
-- ✅ Auto-sleep after inactivity
-- ✅ Easy setup
+## Safety Notes
 
-### Option 3: PythonAnywhere
-- ✅ Free tier: 1 web app
-- ✅ Always-on for paid ($5/month)
+- This bot is not a substitute for medical advice.
+- Emergency messages are handled separately using configured emergency keywords.
+- The system should always display a disclaimer with recommendations.
+- Real patient data should not be committed to the repository.
 
-### Option 4: Fly.io
-- ✅ Free tier: 3 VMs
-- ✅ Good performance
+## Current Status
 
-**Deployment guide:** See `docs/DEPLOYMENT.md`
+Current direction:
 
----
+- active MVP codebase is stable and testable
+- doctor data refresh pipeline is in place
+- repository structure is cleaned for easier launch work
+- branch workflow continues on `v2-refactor-improvements`
 
-## 💰 Cost Analysis
+## License
 
-### MVP0 (Current):
-- Telegram Bot: **FREE**
-- Groq API: **FREE** (14,400 requests/day)
-- Hosting: **FREE** (Railway/Render)
-- **Total: ₹0/month**
-
-### Future Phases:
-- Phase 2 (Availability): ~₹2,500/month
-- Phase 3 (Location): ~₹2,500/month
-- Phase 4 (Booking): ~₹5,000/month
-- Phase 5 (Payment): ~₹10,000/month + 2% transaction fee
-
----
-
-## 📚 Documentation
-
-- **[Data Schema](docs/DATA_SCHEMA.md)**: Database design (MVP + 6 phases)
-- **[Data Collection Template](docs/DATA_COLLECTION_TEMPLATE.md)**: How to add doctors
-- **[Full Platform Roadmap](docs/FULL_PLATFORM_ROADMAP.md)**: 6-phase implementation plan
-- **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)**: Executive overview
-- **[Issue Analysis](docs/ISSUE_ANALYSIS.md)**: Oncologist bug fix
-- **[Visual Architecture](docs/VISUAL_ARCHITECTURE.md)**: Flow diagrams
-
----
-
-## 🧪 Testing
-
-### Test the Oncologist Bug Fix:
-1. Open Telegram: `@arogyamitr_bot`
-2. Send `/start`
-3. Answer with: "tooth pain" scenario
-4. **Expected:** Dr. Priya Sharma (Dentist) ✅
-5. **NOT:** Medical Oncologist ❌
-
-### Sample Test Cases:
-- Tooth pain → Dentist
-- Chest pain → Cardiologist
-- Fever, cold → General Physician
-- Joint pain → Orthopedist
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open Pull Request
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
----
-
-## 🆘 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/arogy_bot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/arogy_bot/discussions)
-- **Email**: your-email@example.com
-
----
-
-## 🎯 Roadmap
-
-- [x] **MVP0**: Symptom → Doctor matching (FREE)
-- [ ] **Phase 1**: Real doctor database (50+ doctors)
-- [ ] **Phase 2**: Availability checking
-- [ ] **Phase 3**: Location filtering (Google Maps)
-- [ ] **Phase 4**: Booking system
-- [ ] **Phase 5**: Payment integration (Razorpay)
-- [ ] **Phase 6**: Reviews & follow-ups
-
----
-
-## ⚡ Performance
-
-- Response time: < 5 seconds
-- Groq API: ~1-2 seconds
-- Doctor matching: < 500ms
-- Telegram delivery: ~1 second
-
----
-
-## 🙏 Acknowledgments
-
-- **Groq** for free LLama 3.3 API
-- **Telegram** for Bot API
-- **Python Telegram Bot** library
-- Open source community
-
----
-
-**Built with ❤️ for accessible healthcare**
-
-*Version: MVP0 (ARM_MVP0)*
-*Last Updated: November 1, 2025*
+MIT License.
