@@ -19,6 +19,26 @@ The current MVP:
 
 The goal is not to provide diagnosis or treatment. The goal is to guide a user toward the most relevant doctor or specialty safely and quickly.
 
+## Security And Data Handling
+
+What is protected:
+
+- API keys stay in `.env` and should never be committed
+- doctor data can be maintained locally and refreshed through the pipeline
+- the repository includes sample/public-safe data for testing
+- local SQLite is used for MVP logging and state
+
+Data note:
+
+- current records in `data/doctors_enhanced.csv` are intended for MVP testing and controlled use
+- real patient data should never be committed to git
+
+Before deployment:
+
+1. Never commit `.env`
+2. Set secrets as environment variables on the hosting platform
+3. Keep private doctor or patient data out of the public repository
+
 ## MVP Scope
 
 The active MVP is intentionally narrow:
@@ -47,6 +67,24 @@ At runtime, the system works like this:
 5. The doctor matcher ranks doctors from the local dataset.
 6. The bot sends doctor cards and a disclaimer.
 7. User and consultation data are stored in SQLite.
+
+## Consultation Flow
+
+The bot is designed around a structured intake flow.
+
+Typical information gathered:
+
+1. Name
+2. Age
+3. Sex
+4. Mobile number
+5. Address
+6. Chief complaint
+7. Duration
+8. Severity
+9. Associated symptoms
+
+Depending on the conversation, the bot may also capture chronic conditions, medications, and red-flag symptoms before making a recommendation.
 
 ## Block Diagram
 
@@ -160,6 +198,26 @@ This refreshes:
 
 This keeps the MVP simple and free while still giving you a usable update pipeline for doctor data.
 
+## Free Hosting And Cost
+
+Recommended hosting options for the MVP:
+
+- Railway
+- Render
+- Fly.io
+- PythonAnywhere
+
+Expected MVP operating model:
+
+- Telegram bot: free
+- CSV + SQLite data layer: free
+- hosting: free tier or near-free tier
+- LLM usage: free-tier-first provider configuration
+
+Target operating cost for MVP0:
+
+- as close to `Rs 0/month` as possible
+
 ## How Doctor Matching Works
 
 The doctor matcher uses a weighted search process:
@@ -215,6 +273,21 @@ Current supported tests cover:
 - LLM fallback behavior
 - doctor data pipeline behavior
 
+Useful manual checks:
+
+- tooth pain -> Dentist
+- chest pain -> emergency-safe handling or cardiology path
+- fever/cold -> General Physician
+- joint pain -> Orthopedist
+
+## Performance Expectations
+
+Current MVP expectation:
+
+- bot response flow should feel near-real-time
+- LLM turn should typically return in a few seconds
+- doctor matching should be fast because it is local CSV-based
+
 ## Free MVP Launch Path
 
 Recommended launch path:
@@ -252,6 +325,16 @@ Useful planning docs:
 - `docs/03_planning/MVP_READINESS.md`
 - `docs/03_planning/DATABASE_PIPELINE.md`
 
+## Roadmap
+
+- `MVP0`: symptom to doctor matching
+- `Phase 1`: stronger real doctor dataset
+- `Phase 2`: availability checking
+- `Phase 3`: location filtering
+- `Phase 4`: booking flow
+- `Phase 5`: payment integration
+- `Phase 6`: reviews and follow-ups
+
 ## Safety Notes
 
 - This bot is not a substitute for medical advice.
@@ -267,6 +350,21 @@ Current direction:
 - doctor data refresh pipeline is in place
 - repository structure is cleaned for easier launch work
 - branch workflow continues on `v2-refactor-improvements`
+
+## Support And Contribution
+
+If you continue iterating on this project:
+
+- use issues and pull requests in the GitHub repository
+- keep changes targeted and tested with `pytest`
+- prefer updating `docs/` when behavior or setup changes
+
+## Acknowledgments
+
+- Telegram Bot API
+- Python Telegram Bot
+- Groq and other provider options used in the fallback design
+- open source Python ecosystem
 
 ## License
 
